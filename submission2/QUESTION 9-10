@@ -1,0 +1,60 @@
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, stringr, readxl, data.table, gdata)
+
+final.data <- readRDS('data/output/TaxBurden_Data.rds')
+
+#QUESTION 9 
+# Filter data for the time period from 1991 to 2015
+period_data <- final.data %>%
+  filter(Year >= 1991 & Year <= 2015)
+
+# Perform regression of log sales on log prices
+demand_regression <- lm(log(sales_per_capita) ~ log(cost_per_pack), data = period_data)
+
+# Extract coefficient for log price
+price_elasticity <- coef(demand_regression)[2]
+
+# Interpret results
+cat("The estimated price elasticity of demand for cigarettes from 1991 to 2015 is approximately", round(price_elasticity, 2), ".\n")
+
+# Check if demand is elastic or inelastic
+if (price_elasticity < -1) {
+  cat("The demand for cigarettes during this period is relatively elastic, indicating that consumers are responsive to changes in price.\n")
+} else if (price_elasticity > -1 && price_elasticity < 0) {
+  cat("The demand for cigarettes during this period is relatively inelastic, suggesting that changes in price have a limited impact on quantity demanded.\n")
+} else {
+  cat("The demand for cigarettes during this period is unitary elastic, implying that percentage changes in price result in equivalent percentage changes in quantity demanded.\n")
+}
+
+
+# Perform first-stage regression: Regress log prices on total cigarette tax
+first_stage <- lm(log(cost_per_pack) ~ log(tax_dollar), data = period_data)
+
+# Obtain predicted values of log prices
+period_data$predicted_log_prices <- predict(first_stage)
+
+# Perform second-stage regression: Regress log sales on predicted log prices
+second_stage <- lm(log(sales_per_capita) ~ predicted_log_prices, data = period_data)
+
+# Extract coefficient for predicted log prices
+price_elasticity_with_instrument <- coef(second_stage)[2]
+
+# Interpret results
+cat("The estimated price elasticity of demand for cigarettes from 1991 to 2015 using an instrument (total cigarette tax) for log prices is approximately", round(price_elasticity_with_instrument, 2), ".\n")
+
+
+# Perform first-stage regression: Regress log prices on total cigarette tax
+first_stage <- lm(log(cost_per_pack) ~ log(tax_dollar), data = period_data)
+
+# Display first-stage results
+summary(first_stage)
+
+# Obtain predicted values of log prices
+period_data$predicted_log_prices <- predict(first_stage)
+
+# Perform second-stage regression: Regress log sales on predicted log prices
+second_stage <- lm(log(sales_per_capita) ~ predicted_log_prices, data = period_data)
+
+# Display reduced-form results
+summary(second_stage)
+
