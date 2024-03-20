@@ -152,3 +152,5 @@ second_stage <- lm(log(sales_per_capita) ~ predicted_log_prices, data = period_d
 
 # Display reduced-form results
 summary(second_stage)
+
+save.image("Hwk3_workspace.Rdata")

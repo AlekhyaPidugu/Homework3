@@ -1,0 +1,48 @@
+---
+Title: "Homework 3"
+Subtitle: "Submission 2"
+Author: "Alekhya Pidugu"
+format:
+  pdf:
+    output-file: "pidugu-a-hwk3-2"
+    output-ext:  "pdf"
+---
+# Git Repository: https://github.com/AlekhyaPidugu/Homework3
+```{r results="hide", echo=FALSE, message=FALSE}
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, readr, readxl, hrbrthemes, fixest,
+               scales, gganimate, gapminder, gifski, png, tufte, plotly, OECD,
+               ggrepel, survey, foreign, devtools, pdftools, kableExtra, modelsummary,
+               kableExtra)
+
+```
+```{r results="hide", echo=FALSE, message=FALSE}
+
+
+```
+
+
+
+\newpage
+# Question 1 <br>  
+```{r results="hide", echo=FALSE, message=FALSE}
+final.data <- readRDS('data/output/TaxBurden_Data.rds')
+
+filtered_data <- final.data %>%
+  filter(Year >= 1970 & Year <= 1985)
+
+# Calculate the proportion of states with a change in cigarette tax for each year
+proportion_data <- filtered_data %>%
+  group_by(Year) %>%
+  summarise(prop_change = mean(!duplicated(tax_state))) %>%
+  mutate(prop_change = ifelse(prop_change == 1, 0, prop_change)) # Handling cases where all states have the same tax rate
+
+# Plotting
+ggplot(proportion_data, aes(x = factor(Year), y = prop_change)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(title = "Proportion of States with Change in Cigarette Tax (1970-1985)",
+       x = "Year",
+       y = "Proportion of States") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
