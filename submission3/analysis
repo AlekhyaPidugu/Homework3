@@ -1,0 +1,172 @@
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, stringr, readxl, data.table, gdata)
+
+final.data <- readRDS('data/output/TaxBurden_Data.rds')
+
+#QUESTION 1
+final.data <- final.data %>% group_by(state)%>%
+arrange(state, Year)%>%
+mutate(tax_change = tax_state-lag(tax_state),
+tax_change_d= ifelse(tax_change == 0,0,1),
+price_cpi_2022 = cost_per_pack*(cpi.2012/index),
+total_tax_cpi_2022 = tax_dollar*(cpi.2012/index),
+ln_tax_2012  =log(total_tax_cpi_2022),
+ln_sales = log(sales_per_capita),
+ln_price = log(price_cpi_2022))
+
+
+q1 <- final.data %>%
+  filter(Year >= 1970 & Year <= 1985) %>%  
+  group_by(Year) %>%                      
+  summarise(count_tax_change = sum(tax_change_d, na.rm = TRUE)) %>%
+  mutate(proportion = count_tax_change / n_distinct(final.data$state)) 
+
+# Creating the bar graph
+ggplot(q1, aes(x = as.factor(Year), y = proportion)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(title = "Proportion of States with Change in Cigarette Tax (1970-1985)",
+       x = "Year",
+       y = "Proportion of States") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+#QUESTION 2
+q2 <- final.data %>% 
+filter(Year >= 1970 & Year <= 2018) %>%  
+group_by(Year) %>%    
+summarise(mean_price = mean(price_cpi_2022, na.rm =
+TRUE), mean_tax = mean (total_tax_cpi_2022, na.rm=TRUE))
+
+ggplot(q2, aes(x = Year)) +
+  geom_line(aes(y = mean_price, color = "Price")) +  
+  geom_line(aes(y = mean_tax, color = "Tax")) +      
+  labs(
+    x = "Year",
+    y = "Average",
+    title = "Average Price and Cigarette Tax Over Time"
+  ) +
+  scale_color_manual(values = c("red", "blue"), labels = c("Price", "Tax")) + 
+  theme_minimal()
+
+#QUESTION 3
+price_increase <- final.data %>%
+  group_by(state) %>%
+  summarise(price_increase = max(cost_per_pack) - min(cost_per_pack))
+
+# Identify the 5 states with the highest increases in cigarette prices
+top_5_states <- price_increase %>%
+  arrange(desc(price_increase)) %>%
+  head(5) %>%
+  pull(state)
+
+# Filter data for the top 5 states
+top_5_data <- final.data %>%
+  filter(state %in% top_5_states)
+
+# Plot the average number of packs sold per capita for the top 5 states from 1970 to 2018
+ggplot(top_5_data, aes(x = Year, y = sales_per_capita, group = state, color = state)) +
+  geom_line() +
+  labs(title = "Average Number of Packs Sold Per Capita (1970-2018) for Top 5 States with Highest Price Increases",
+       x = "Year",
+       y = "Average Number of Packs Sold Per Capita") +
+  theme_minimal()
+
+#QUESTION 4
+# Identify the 5 states with the lowest increases in cigarette prices
+bottom_5_states <- price_increase %>%
+  arrange(price_increase) %>%
+  head(5) %>%
+  pull(state)
+
+# Filter data for the bottom 5 states
+bottom_5_data <- final.data %>%
+  filter(state %in% bottom_5_states)
+
+# Plot the average number of packs sold per capita for the bottom 5 states from 1970 to 2018
+ggplot(bottom_5_data, aes(x = Year, y = sales_per_capita, group = state, color = state)) +
+  geom_line() +
+  labs(title = "Average Number of Packs Sold Per Capita (1970-2018) for Bottom 5 States with Lowest Price Increases",
+       x = "Year",
+       y = "Average Number of Packs Sold Per Capita") +
+  theme_minimal()
+
+# QUESTION 5 
+# One significant trend to observe is that the bottom five states cigarette prices is not as substantial as the magnitude of the increase in cigarette 
+# prices for the 5 states with the highest price raises. The bottom 5 states with the lowest price increases generally demonstrated more stable trends in 
+# sales per capita. Although there were fluctuations, the overall trend tended to be less pronounced compared to states with higher price increases.
+ 
+
+
+#QUESTION 6
+# Subset the data for the time period from 1970 to 1990
+subset_data <- final.data %>%
+  filter(Year >= 1970 & Year <= 1990)
+
+# Perform the regression analysis
+model <- lm(log(sales_per_capita) ~ log(price_cpi), data = subset_data)
+
+# Extract the coefficient of the log price variable
+price_elasticity <- coef(model)[2]
+cat("The estimated price elasticity of demand for cigarettes from 1970 to 1990 is approximately", round(price_elasticity, 2), ".\n")
+
+#QUESTION 7 
+
+ivs <- feols(log(sales_per_capita) ~ 1 | log(price_cpi) ~ log(total_tax_cpi_2022), 
+             data=subset_data)
+summary(ivs)
+
+#QUESTION 8
+step1 <- lm(log(price_cpi) ~ log(total_tax_cpi_2022), data=subset_data) #feols instead
+pricehat <- predict(step1)
+step2 <- lm(log(sales_per_capita) ~ pricehat, data=subset_data)
+summary(step1)
+summary(step2)
+
+#QUESTION 9 
+
+# Filter data for the time period from 1991 to 2015
+subset_data2 <- final.data %>%
+  filter(Year >= 1991 & Year <= 2015)
+
+# Perform the regression analysis
+model2 <- lm(log(sales_per_capita) ~ log(price_cpi), data = subset_data2)
+
+# Extract the coefficient of the log price variable
+price_elasticity <- coef(model2)[2]
+cat("The estimated price elasticity of demand for cigarettes from 1970 to 1990 is approximately", round(price_elasticity2, 4), ".\n")
+
+
+# Again limiting to 1970 to 1990, regress log sales on log prices using the total (federal and state) cigarette tax (in dollars) as an instrument for log prices. Interpret your results and compare your estimates to those without an instrument. Are they different? If so, why?
+ivs2 <- feols(log(sales_per_capita) ~ 1 | log(price_cpi) ~ log(total_tax_cpi_2022), 
+             data=subset_data2)
+summary(ivs2)
+
+# Show the first stage and reduced-form results from the instrument.
+step12 <- lm(log(price_cpi) ~ log(total_tax_cpi_2022), data=subset_data2)
+pricehat2 <- predict(step12)
+step22 <- lm(log(sales_per_capita) ~ pricehat2, data=subset_data2)
+summary(step12)
+summary(step22)
+
+#Question 10
+results1 <- data.frame(
+  Period = "1970-1990",
+  Price_Elasticity = price_elasticity,
+  IV_Elasticity = coef(ivs)[2],
+  First_Stage_R2 = summary(step1)$r.squared,
+  Reduced_Form_R2 = summary(step2)$r.squared
+)
+
+results2 <- data.frame(
+  Period = "1991-2015",
+  Price_Elasticity = price_elasticity2,
+  IV_Elasticity = coef(ivs2)[2],
+  First_Stage_R2 = summary(step12)$r.squared,
+  Reduced_Form_R2 = summary(step22)$r.squared
+)
+
+# Combine the results into a single dataframe
+all_results <- rbind(results1, results2)
+
+# Print the results table
+print(all_results)

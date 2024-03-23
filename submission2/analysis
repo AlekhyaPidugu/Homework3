@@ -4,23 +4,20 @@ pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, stringr, readxl, data.table
 final.data <- readRDS('data/output/TaxBurden_Data.rds')
 
 #QUESTION 1
-filtered_data <- final.data %>%
-  filter(Year >= 1970 & Year <= 1985)
+data <- final.data %>% group_by(state)%>%
+arrange(state, Year)%>%
+mutate(tax_change = tax_state-lag(tax_state),
+tax_change_d= ifelse(tax_change == 0,0,1),
+price_cpi_2022 = cost_per_pack*(cpi_2012/index),
+total_tax_cpi_2022 = tax_state*(cpi_2012/index),
+ln_tax_2012  =log(total_tax_cpi_2022),
+ln_sales = log(sales_per_capita),
+ln_price = log(price_cpi_2022)
 
-# Calculate the proportion of states with a change in cigarette tax for each year
-proportion_data <- filtered_data %>%
-  group_by(Year) %>%
-  summarise(prop_change = mean(!duplicated(tax_state))) %>%
-  mutate(prop_change = ifelse(prop_change == 1, 0, prop_change)) # Handling cases where all states have the same tax rate
-
-# Plotting
-ggplot(proportion_data, aes(x = factor(Year), y = prop_change)) +
-  geom_bar(stat = "identity", fill = "skyblue") +
-  labs(title = "Proportion of States with Change in Cigarette Tax (1970-1985)",
-       x = "Year",
-       y = "Proportion of States") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+q1 <- data %>%
+filter(Year <= 1985)%>%
+group_by(Year)%>%
+summarise(count_tax_change = sum(tax_change_d, na.rm = TRUE))%>%
 
 #QUESTION 2
 # Calculate average tax (in 2012 dollars) on cigarettes for each year
@@ -153,4 +150,4 @@ second_stage <- lm(log(sales_per_capita) ~ predicted_log_prices, data = period_d
 # Display reduced-form results
 summary(second_stage)
 
-save.image("Hwk3_workspace.Rdata")
+save.image("/Users/alekhyapidugu/Desktop/Homework 3/submission2/Hmk3_workspace.Rdata")

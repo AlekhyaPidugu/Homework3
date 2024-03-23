@@ -50,6 +50,11 @@ cpi.data <- cpi.data %>%
   group_by(Year) %>%
   summarize(index=mean(index, na.rm=TRUE))
 
+cpi.2012 <- cpi.data %>%
+  filter(Year == 2012) %>%
+  select(index) %>%
+  as.numeric()
+
 
 
 # Form final dataset ------------------------------------------------------

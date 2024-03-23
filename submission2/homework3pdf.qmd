@@ -16,33 +16,217 @@ pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, readr, readxl, hrbrthemes, 
                kableExtra)
 
 ```
-```{r results="hide", echo=FALSE, message=FALSE}
-
-
+```{r  results="hide", echo=FALSE, message=FALSE}
+# Load data from .RData file
+load("/Users/alekhyapidugu/Desktop/Homework 3/submission2/Hmk3_workspace.Rdata")
 ```
-
-
 
 \newpage
 # Question 1 <br>  
 ```{r results="hide", echo=FALSE, message=FALSE}
-final.data <- readRDS('data/output/TaxBurden_Data.rds')
+final.data <- readRDS('/Users/alekhyapidugu/Desktop/Homework 3/data/output/TaxBurden_Data.rds')
 
-filtered_data <- final.data %>%
-  filter(Year >= 1970 & Year <= 1985)
+final.data <- final.data %>% group_by(state)%>%
+arrange(state, Year)%>%
+mutate(tax_change = tax_state-lag(tax_state),
+tax_change_d= ifelse(tax_change == 0,0,1),
+price_cpi_2022 = cost_per_pack*(cpi.2012/index),
+total_tax_cpi_2022 = tax_dollar*(cpi.2012/index),
+ln_tax_2012  =log(total_tax_cpi_2022),
+ln_sales = log(sales_per_capita),
+ln_price = log(price_cpi_2022))
 
-# Calculate the proportion of states with a change in cigarette tax for each year
-proportion_data <- filtered_data %>%
-  group_by(Year) %>%
-  summarise(prop_change = mean(!duplicated(tax_state))) %>%
-  mutate(prop_change = ifelse(prop_change == 1, 0, prop_change)) # Handling cases where all states have the same tax rate
 
-# Plotting
-ggplot(proportion_data, aes(x = factor(Year), y = prop_change)) +
+q1 <- final.data %>%
+  filter(Year >= 1970 & Year <= 1985) %>%  
+  group_by(Year) %>%                      
+  summarise(count_tax_change = sum(tax_change_d, na.rm = TRUE)) %>%
+  mutate(proportion = count_tax_change / n_distinct(final.data$state)) 
+
+# Creating the bar graph
+ggplot(q1, aes(x = as.factor(Year), y = proportion)) +
   geom_bar(stat = "identity", fill = "skyblue") +
   labs(title = "Proportion of States with Change in Cigarette Tax (1970-1985)",
        x = "Year",
        y = "Proportion of States") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+\newpage
+# Question 2 <br>  
+```{r results="hide", echo=FALSE, message=FALSE}
+average_tax <- final.data %>%
+  group_by(Year) %>%
+  summarise(avg_tax_2012 = mean(tax_state * (218 / price_cpi)))
+
+# Calculate average price of a pack of cigarettes for each year
+average_price <- final.data %>%
+  group_by(Year) %>%
+  summarise(avg_price = mean(cost_per_pack))
+
+# Combine data into a single dataframe
+combined_data <- inner_join(average_tax, average_price, by = "Year")
+
+# Plotting
+ggplot(combined_data, aes(x = Year)) +
+  geom_line(aes(y = avg_tax_2012, color = "Average Tax (2012 dollars)")) +
+  geom_line(aes(y = avg_price, color = "Average Price of a Pack")) +
+  scale_color_manual(values = c("Average Tax (2012 dollars)" = "blue", "Average Price of a Pack" = "red")) +
+  labs(title = "Average Tax and Price of Cigarettes (1970-2018)",
+       x = "Year",
+       y = "Average Amount",
+       color = "Metric") +
+  theme_minimal()
 ```
+
+\newpage
+# Question 3 <br>  
+Connecticut  
+<br> 
+D.C  
+<br> 
+Massachusetts 
+<br>  
+New York  
+<br> 
+Rhode Island  <br>
+```{r results="hide", echo=FALSE, message=FALSE}
+price_increase <- final.data %>%
+  group_by(state) %>%
+  summarise(price_increase = max(cost_per_pack) - min(cost_per_pack))
+
+# Identify the 5 states with the highest increases in cigarette prices
+top_5_states <- price_increase %>%
+  arrange(desc(price_increase)) %>%
+  head(5) %>%
+  pull(state)
+
+# Filter data for the top 5 states
+top_5_data <- final.data %>%
+  filter(state %in% top_5_states)
+
+# Plot the average number of packs sold per capita for the top 5 states from 1970 to 2018
+ggplot(top_5_data, aes(x = Year, y = sales_per_capita, group = state, color = state)) +
+  geom_line() +
+  labs(title = "Average Number of Packs Sold Per Capita (1970-2018) for Top 5 States with Highest Price Increases",
+       x = "Year",
+       y = "Average Number of Packs Sold Per Capita") +
+  theme_minimal()
+```
+
+\newpage
+# Question 4 <br>  
+Georgia 
+<br> 
+Missouri  
+<br> 
+North Carolina 
+<br>  
+North Dakota  
+<br> 
+Tennessee  <br>
+```{r results="hide", echo=FALSE, message=FALSE}
+bottom_5_states <- price_increase %>%
+  arrange(price_increase) %>%
+  head(5) %>%
+  pull(state)
+
+# Filter data for the bottom 5 states
+bottom_5_data <- final.data %>%
+  filter(state %in% bottom_5_states)
+
+# Plot the average number of packs sold per capita for the bottom 5 states from 1970 to 2018
+ggplot(bottom_5_data, aes(x = Year, y = sales_per_capita, group = state, color = state)) +
+  geom_line() +
+  labs(title = "Average Number of Packs Sold Per Capita (1970-2018) for Bottom 5 States with Lowest Price Increases",
+       x = "Year",
+       y = "Average Number of Packs Sold Per Capita") +
+  theme_minimal()
+
+```
+
+\newpage
+# Question 5 <br> 
+One significant trend to observe is that the bottom five states cigarette prices is not as substantial as the magnitude of the increase in cigarette prices for the 5 states with the highest price raises. The bottom 5 states with the lowest price increases generally demonstrated more stable trends in sales per capita. Although there were fluctuations, the overall trend tended to be less pronounced compared to states with higher price increases.
+
+\newpage
+# Question 6 <br>  
+The estimated price elasticity of demand for cigarettes from 1970 to 1990 is approximately -0.17. The demand for cigarettes during this period is relatively inelastic, suggesting that changes in price have a limited impact on quantity demanded.
+
+\newpage
+# Question 7 <br>  
+The estimated price elasticity of demand for cigarettes from 1970 to 1990 using an instrument (total cigarette tax) for log prices is approximately -0.28.
+When using an instrument, the estimated price elasticity of demand may differ from estimates without an instrument due to the endogeneity of prices. An instrument helps address potential biases in the estimation by providing exogenous variation in prices.
+
+\newpage
+# Question 8 <br> 
+```{r  echo=FALSE, message=FALSE}
+period_data <- final.data %>%
+  filter(Year >= 1970 & Year <= 1990)
+first_stage <- lm(log(cost_per_pack) ~ log(tax_dollar), data = period_data)
+
+# Display first-stage results
+summary(first_stage)
+
+# Obtain predicted values of log prices
+period_data$predicted_log_prices <- predict(first_stage)
+
+# Perform second-stage regression: Regress log sales on predicted log prices
+second_stage <- lm(log(sales_per_capita) ~ predicted_log_prices, data = period_data)
+
+# Display reduced-form results
+summary(second_stage)
+```
+
+\newpage
+# Question 9 <br> 
+
+The estimated price elasticity of demand for cigarettes from 1991 to 2015 is approximately -0.67. The demand for cigarettes during this period is relatively inelastic, suggesting that changes in price have a limited impact on quantity demanded.
+The estimated price elasticity of demand for cigarettes from 1991 to 2015 using an instrument (total cigarette tax) for log prices is approximately -0.76.
+
+```{r  echo=FALSE, message=FALSE}
+period_data <- final.data %>%
+  filter(Year >= 1991 & Year <= 2015)
+
+# Perform regression of log sales on log prices
+demand_regression <- lm(log(sales_per_capita) ~ log(cost_per_pack), data = period_data)
+
+# Extract coefficient for log price
+price_elasticity <- coef(demand_regression)[2]
+
+
+# Perform first-stage regression: Regress log prices on total cigarette tax
+first_stage <- lm(log(cost_per_pack) ~ log(tax_dollar), data = period_data)
+
+# Obtain predicted values of log prices
+period_data$predicted_log_prices <- predict(first_stage)
+
+# Perform second-stage regression: Regress log sales on predicted log prices
+second_stage <- lm(log(sales_per_capita) ~ predicted_log_prices, data = period_data)
+
+# Extract coefficient for predicted log prices
+price_elasticity_with_instrument <- coef(second_stage)[2]
+
+# Interpret results
+cat("The estimated price elasticity of demand for cigarettes from 1991 to 2015 using an instrument (total cigarette tax) for log prices is approximately", round(price_elasticity_with_instrument, 2), ".\n")
+
+
+# Perform first-stage regression: Regress log prices on total cigarette tax
+first_stage <- lm(log(cost_per_pack) ~ log(tax_dollar), data = period_data)
+
+# Display first-stage results
+summary(first_stage)
+
+# Obtain predicted values of log prices
+period_data$predicted_log_prices <- predict(first_stage)
+
+# Perform second-stage regression: Regress log sales on predicted log prices
+second_stage <- lm(log(sales_per_capita) ~ predicted_log_prices, data = period_data)
+
+# Display reduced-form results
+summary(second_stage)
+```
+
+\newpage
+# Question 10 <br>
+The elasticity estimate for the period 1970-1990 was approximately -0.17, whereas for the period 1991-2015, it was approximately -0.67.
+The difference in elasticity estimates could be attributed to changes in consumer behavior, regulatory policies, and socio-economic conditions. For example, increased awareness of health risks associated with smoking could have made consumers more sensitive to price changes in later years.
